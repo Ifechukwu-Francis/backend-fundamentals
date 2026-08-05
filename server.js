@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require ('express');
 const app = express();
 
@@ -6,6 +7,17 @@ app.use(express.json());
 const port = 3000;
 
 const {z} = require('zod');
+
+const bcrypt = require('bcrypt');
+const users = [];
+
+const registerSchema = z.object({
+    email: z.string().email('Must be a valid email address'),
+    password: z.string().min(6, 'Password must be at least 6 characters long'),
+});
+
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 3000; //
 
 const productSchema = z.object({
     name: z.string().min(2, 'Product name must be at least 2 characters long'),
@@ -42,8 +54,68 @@ app.get('/search',(req, res) =>{
     const category = req.query.category;
     const sort = req.query.sort;
     res.send(`Searching category: ${category}, sorted by: ${sort}`);
-})
- 
+});
+
+//Registration route with validation and password hashing
+app.post('/register', async (req, res) => {
+    const result = registerSchema.safeParse(req.body);
+
+    if (!result.success) {
+        return res.status(400).json({ message: 'Validation failed', errors: result.error.issues.map(issue => issue.message) });
+    }
+
+    const { email, password } = result.data;
+    // Check if user already exists
+    const existingUser = users.find(user => user.email === email);
+    // Check if user already exists
+    if (existingUser) {
+        return res.status(400).json({ message: 'A user with this email already exists' });
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const newUser = { id: users.length + 1, email, password: hashedPassword };
+    users.push(newUser);
+
+    res.status(201).json({ message: 'User registered successfully', userId: newUser.id });
+});
+
+//login route with JWT token generation
+const loginSchema = z.object({
+    email: z.string().email('Must be a valid email address'),
+    password: z.string().min(6, 'Password must be at least 6 characters long'),
+});
+
+app.post('/login', async (req, res) => {
+    const result = loginSchema.safeParse(req.body);
+
+    if (!result.success) {
+        return res.status(400).json({ message: 'Validation failed', errors: result.error.issues.map(issue => issue.message) });
+    }
+
+    const { email, password } = result.data;
+
+    // Find the user
+    const user = users.find(u => u.email === email);
+
+    if (!user) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+    }
+    // Check the password
+    const passwordMatches = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatches) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Generate a JWT token
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({ message: 'Login successful', token });
+});
+
 app.listen(port, () => {
     console.log(`server is running on port ${port}`);
 });
