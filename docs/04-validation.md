@@ -102,4 +102,4 @@ app.post('/products', (req, res) => {
 Validation should always happen **before** business logic runs — it's a gate, not an afterthought. And it's layered: frontend validation is for UX (bypassable), backend validation is the real gatekeeper (non-negotiable), and database constraints are the final safety net.
 
 ---
-⬅ [Routing](./03-routing.md) · Back to [README](../README.md)
+⬅️ [Routing](./03-routing.md) · Next: [Authentication & Authorization →](./05-authentication-and-authorization.md)

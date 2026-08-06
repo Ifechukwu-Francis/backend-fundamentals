@@ -10,6 +10,8 @@ const {z} = require('zod');
 
 const bcrypt = require('bcrypt');
 const users = [];
+const products = []; // temporary in-memory storage
+let nextProductId = 1;
 
 const registerSchema = z.object({
     email: z.string().email('Must be a valid email address'),
@@ -24,6 +26,23 @@ const productSchema = z.object({
     price: z.number().positive('Product price must be a positive number'),
 });
 
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: 'Access token required' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).json({ message: 'Invalid or expired token' });
+        }
+        req.user = decoded;
+        next();
+    });
+}
+
 app.get('/',(req, res) => {
     res.send('Welcome to the homepage');
 });
@@ -37,17 +56,46 @@ app.get('/products/:id',(req, res) => {
     res.json({id: productId, name:'Sample Product'});
 });
 
-app.post('/products',(req, res) => {
+app.get('/profile', authenticateToken, (req, res) => {
+    res.json({ message: 'This is your profile', user: req.user });
+});
+
+app.post('/products' , authenticateToken,(req, res) => {
     const result = productSchema.safeParse(req.body);
 
     if (!result.success) {
-        return res.status(400).json({ message: 'Validation failed', errors: result.error.issues.map(issue => issue.message) });
+        return res.status(400).json({
+             message: 'Validation failed', 
+             errors: result.error.issues.map(issue => issue.message) 
+            });
     }
 
-    const { name, price } = result.data;
+    const newProduct = {
+        id: nextProductId++,
+        name: result.data.name,
+        price: result.data.price,
+        ownerId: req.user.userId,
+    };
 
-    const newProduct = {name, price};
+    products.push(newProduct);
     res.status(201).json({ message:'Product created', product: newProduct});
+});
+
+app.delete('/products/:id',authenticateToken,(req, res) => {
+    const productId = parseInt(req.params.id);
+
+    const product =products.find(p => p.id === productId);
+
+    if (!product){
+        return res.status(404).json({message:'product not found'});
+    }
+    if (product.ownerId !== req.user.userId){
+        return res.status(403).json({message:'you do not have permission to delete this product'})
+    }
+    const index = products.indexOf(product);
+    products.splice(index, 1);
+
+    res.status(200).json({message:'Product deleted successfully'});
 });
 
 app.get('/search',(req, res) =>{
@@ -111,10 +159,11 @@ app.post('/login', async (req, res) => {
     }
 
     // Generate a JWT token
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({ message: 'Login successful', token });
 });
+
 
 app.listen(port, () => {
     console.log(`server is running on port ${port}`);

@@ -24,8 +24,9 @@ This isn't a repo you just clone and run — it's meant to be worked through, in
 | 2 | [HTTP & HTTPS](./docs/02-http-and-https.md) | Requests, responses, status codes, why HTTPS matters |
 | 3 | [Routing](./docs/03-routing.md) | Static/dynamic routes, route params, query params, route order bugs |
 | 4 | [Validation](./docs/04-validation.md) | Manual validation, then schema-based validation with Zod |
+| 5 | [Authentication & Authorization](./docs/05-authentication-and-authorization.md) | Password hashing, JWTs, protecting routes with middleware, ownership-based access control |
 
-More topics (authentication, database integration, error handling, logging) will be added here as the project grows — check back or watch the repo.
+More topics (database integration, error handling, logging) will be added here as the project grows — check back or watch the repo.
 
 ---
 
@@ -36,6 +37,9 @@ More topics (authentication, database integration, error handling, logging) will
 | [Node.js](https://nodejs.org/) | JavaScript runtime for the backend |
 | [Express](https://expressjs.com/) | Web framework — handles routing, middleware, requests/responses |
 | [Zod](https://zod.dev/) | Schema-based data validation |
+| [bcrypt](https://www.npmjs.com/package/bcrypt) | Password hashing |
+| [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken) | Issuing and verifying JWTs for authentication |
+| [dotenv](https://www.npmjs.com/package/dotenv) | Loading secrets from a `.env` file instead of hardcoding them |
 
 ---
 
@@ -52,6 +56,16 @@ git clone https://github.com/Ifechukwu-Francis/backend-fundamentals.git
 cd backend-fundamentals
 npm install
 ```
+
+### Environment variables
+
+This project uses a `.env` file for secrets (never committed to git). Copy the example file and fill in your own values:
+
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and set a long, random value for `JWT_SECRET`. See [05-authentication-and-authorization.md](./docs/05-authentication-and-authorization.md) for why this matters.
 
 ### Running the server
 
@@ -70,20 +84,52 @@ The server will then be available at `http://localhost:3000`.
 
 ## API Routes
 
-| Method | Path | Description | Concept doc |
-|--------|------|-------------|-------------|
-| GET | `/` | Homepage — confirms the server is running | [01](./docs/01-the-server.md) |
-| GET | `/about` | Static example route | [03](./docs/03-routing.md) |
-| GET | `/products/:id` | Demonstrates a **dynamic route parameter** — try `/products/12` | [03](./docs/03-routing.md) |
-| GET | `/search?category=&sort=` | Demonstrates **query parameters** | [03](./docs/03-routing.md) |
-| POST | `/products` | Creates a product — demonstrates **request body validation** with Zod | [04](./docs/04-validation.md) |
+| Method | Path | Auth required? | Description | Concept doc |
+|--------|------|:---:|-------------|-------------|
+| GET | `/` | No | Homepage — confirms the server is running | [01](./docs/01-the-server.md) |
+| GET | `/about` | No | Static example route | [03](./docs/03-routing.md) |
+| GET | `/products/:id` | No | Demonstrates a **dynamic route parameter** — try `/products/12` | [03](./docs/03-routing.md) |
+| GET | `/search?category=&sort=` | No | Demonstrates **query parameters** | [03](./docs/03-routing.md) |
+| POST | `/register` | No | Registers a new user — hashes the password with bcrypt | [05](./docs/05-authentication-and-authorization.md) |
+| POST | `/login` | No | Logs in and returns a JWT | [05](./docs/05-authentication-and-authorization.md) |
+| GET | `/profile` | ✅ Yes | Returns the logged-in user's decoded token payload | [05](./docs/05-authentication-and-authorization.md) |
+| POST | `/products` | ✅ Yes | Creates a product owned by the logged-in user — validated with Zod | [04](./docs/04-validation.md), [05](./docs/05-authentication-and-authorization.md) |
+| DELETE | `/products/:id` | ✅ Yes | Deletes a product — only the **owner** can delete it | [05](./docs/05-authentication-and-authorization.md) |
 
-### Example: Creating a product
+Routes marked "Auth required" expect a header: `Authorization: Bearer <your-jwt-token>` — get a token from `POST /login` first.
+
+### Example: Registering and logging in
+
+**Register**
+```
+POST /register
+Content-Type: application/json
+
+{
+  "email": "you@example.com",
+  "password": "yourpassword123"
+}
+```
+
+**Login**
+```
+POST /login
+Content-Type: application/json
+
+{
+  "email": "you@example.com",
+  "password": "yourpassword123"
+}
+```
+Response includes a `token` — copy it for the next step.
+
+### Example: Creating a product (requires a token)
 
 **Request**
 ```
 POST /products
 Content-Type: application/json
+Authorization: Bearer <your-token-here>
 
 {
   "name": "Wireless Mouse",
@@ -96,8 +142,10 @@ Content-Type: application/json
 {
   "message": "Product created",
   "product": {
+    "id": 1,
     "name": "Wireless Mouse",
-    "price": 25
+    "price": 25,
+    "ownerId": 1
   }
 }
 ```
@@ -112,6 +160,20 @@ Content-Type: application/json
 }
 ```
 
+**No token / invalid token**
+```json
+{
+  "message": "Access token is required"
+}
+```
+
+**Trying to delete someone else's product — `403 Forbidden`**
+```json
+{
+  "message": "You do not have permission to delete this product"
+}
+```
+
 ---
 
 ## A note for fellow beginners
@@ -122,4 +184,4 @@ If something here doesn't make sense, that's normal — it took building it step
 
 ## Author
 
-Built by **Ifechukwe Francis** — final-year Computer Science student, learning backend development one concept at a time.
+Built by **Ifechukwu Francis** — final-year Computer Science student, learning backend development one concept at a time.
