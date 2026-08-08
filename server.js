@@ -1,4 +1,13 @@
 require('dotenv').config();
+const { PrismaClient } = require('@prisma/client');
+const {PrismaPg} = require('@prisma/adapter-pg');
+
+const adapter = new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+});
+const prisma = new PrismaClient( {adapter});
+
+
 const express = require ('express');
 const app = express();
 
@@ -9,9 +18,7 @@ const port = 3000;
 const {z} = require('zod');
 
 const bcrypt = require('bcrypt');
-const users = [];
-const products = []; // temporary in-memory storage
-let nextProductId = 1;
+
 
 const registerSchema = z.object({
     email: z.string().email('Must be a valid email address'),
@@ -60,7 +67,7 @@ app.get('/profile', authenticateToken, (req, res) => {
     res.json({ message: 'This is your profile', user: req.user });
 });
 
-app.post('/products' , authenticateToken,(req, res) => {
+app.post('/products' , authenticateToken,async(req, res) => {
     const result = productSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -70,21 +77,20 @@ app.post('/products' , authenticateToken,(req, res) => {
             });
     }
 
-    const newProduct = {
-        id: nextProductId++,
-        name: result.data.name,
-        price: result.data.price,
-        ownerId: req.user.userId,
-    };
-
-    products.push(newProduct);
+    const newProduct = await prisma.product.create({
+        data: {
+            name: result.data.name,
+            price: result.data.price,
+            ownerId: req.user.userId,
+        },
+    });
     res.status(201).json({ message:'Product created', product: newProduct});
 });
 
-app.delete('/products/:id',authenticateToken,(req, res) => {
+app.delete('/products/:id',authenticateToken, async(req, res) => {
     const productId = parseInt(req.params.id);
 
-    const product =products.find(p => p.id === productId);
+    const product =await prisma.product.findUnique({ where: { id: productId } });
 
     if (!product){
         return res.status(404).json({message:'product not found'});
@@ -92,8 +98,7 @@ app.delete('/products/:id',authenticateToken,(req, res) => {
     if (product.ownerId !== req.user.userId){
         return res.status(403).json({message:'you do not have permission to delete this product'})
     }
-    const index = products.indexOf(product);
-    products.splice(index, 1);
+    await prisma.product.delete({ where: { id: productId } });
 
     res.status(200).json({message:'Product deleted successfully'});
 });
@@ -114,18 +119,22 @@ app.post('/register', async (req, res) => {
 
     const { email, password } = result.data;
     // Check if user already exists
-    const existingUser = users.find(user => user.email === email);
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     // Check if user already exists
     if (existingUser) {
-        return res.status(400).json({ message: 'A user with this email already exists' });
+        return res.status(409).json({ message: 'A user with this email already exists' });
     }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
-    const newUser = { id: users.length + 1, email, password: hashedPassword };
-    users.push(newUser);
+    const newUser = await prisma.user.create({
+        data: {
+            email,
+            password: hashedPassword
+        }
+    });
 
     res.status(201).json({ message: 'User registered successfully', userId: newUser.id });
 });
@@ -146,7 +155,7 @@ app.post('/login', async (req, res) => {
     const { email, password } = result.data;
 
     // Find the user
-    const user = users.find(u => u.email === email);
+    const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
         return res.status(401).json({ message: 'Invalid email or password' });
