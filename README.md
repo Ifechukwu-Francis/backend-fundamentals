@@ -26,9 +26,9 @@ This isn't a repo you just clone and run — it's meant to be worked through, in
 | 4 | [Validation](./docs/04-validation.md) | Manual validation, then schema-based validation with Zod |
 | 5 | [Authentication & Authorization](./docs/05-authentication-and-authorization.md) | Password hashing, JWTs, protecting routes with middleware, ownership-based access control |
 | 6 | [Database Integration](./docs/06-database.md) | Connecting a real PostgreSQL database with Prisma — schema design, migrations, and swapping in-memory storage for persistent data |
+| 7 | [Error Handling](./docs/07-error-handling.md) | Centralized error handling with Express middleware, the manual try/catch approach, and refactoring into a reusable async wrapper |
 
-More topics (error handling, logging) will be added here as the project grows — check back or watch the repo.
-
+More topics (logging) will be added here as the project grows — check back or watch the repo.
 ---
 
 ## Tech Stack

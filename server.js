@@ -50,6 +50,12 @@ function authenticateToken(req, res, next) {
     });
 }
 
+function asyncHandler(fn) {
+    return function(req, res, next) {
+        fn(req, res, next).catch(next);
+    };
+}
+
 app.get('/',(req, res) => {
     res.send('Welcome to the homepage');
 });
@@ -67,7 +73,7 @@ app.get('/profile', authenticateToken, (req, res) => {
     res.json({ message: 'This is your profile', user: req.user });
 });
 
-app.post('/products' , authenticateToken,async(req, res) => {
+app.post('/products' ,authenticateToken,asyncHandler(async(req, res, next) => {
     const result = productSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -85,9 +91,11 @@ app.post('/products' , authenticateToken,async(req, res) => {
         },
     });
     res.status(201).json({ message:'Product created', product: newProduct});
-});
 
-app.delete('/products/:id',authenticateToken, async(req, res) => {
+}));
+
+app.delete('/products/:id',authenticateToken, asyncHandler(async (req, res, next) => {
+   
     const productId = parseInt(req.params.id);
 
     const product =await prisma.product.findUnique({ where: { id: productId } });
@@ -101,7 +109,8 @@ app.delete('/products/:id',authenticateToken, async(req, res) => {
     await prisma.product.delete({ where: { id: productId } });
 
     res.status(200).json({message:'Product deleted successfully'});
-});
+
+}));
 
 app.get('/search',(req, res) =>{
     const category = req.query.category;
@@ -110,7 +119,7 @@ app.get('/search',(req, res) =>{
 });
 
 //Registration route with validation and password hashing
-app.post('/register', async (req, res) => {
+app.post('/register', asyncHandler(async (req, res, next) => {
     const result = registerSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -137,7 +146,7 @@ app.post('/register', async (req, res) => {
     });
 
     res.status(201).json({ message: 'User registered successfully', userId: newUser.id });
-});
+}));
 
 //login route with JWT token generation
 const loginSchema = z.object({
@@ -145,7 +154,7 @@ const loginSchema = z.object({
     password: z.string().min(6, 'Password must be at least 6 characters long'),
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', asyncHandler(async (req, res, next) => {
     const result = loginSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -171,8 +180,14 @@ app.post('/login', async (req, res) => {
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({ message: 'Login successful', token });
-});
+  
+}));
 
+function errorHandler(err,req, res, next){
+    console.error(err);
+    res.status(500).json({message:'Something went wrong on our end'});
+}
+app.use(errorHandler);
 
 app.listen(port, () => {
     console.log(`server is running on port ${port}`);
