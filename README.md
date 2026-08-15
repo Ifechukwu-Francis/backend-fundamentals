@@ -27,8 +27,9 @@ This isn't a repo you just clone and run — it's meant to be worked through, in
 | 5 | [Authentication & Authorization](./docs/05-authentication-and-authorization.md) | Password hashing, JWTs, protecting routes with middleware, ownership-based access control |
 | 6 | [Database Integration](./docs/06-database.md) | Connecting a real PostgreSQL database with Prisma — schema design, migrations, and swapping in-memory storage for persistent data |
 | 7 | [Error Handling](./docs/07-error-handling.md) | Centralized error handling with Express middleware, the manual try/catch approach, and refactoring into a reusable async wrapper |
+| 8 | [Logging](./docs/08-logging.md) | Structured logging with Winston, log levels, and request-logging middleware |
 
-More topics (logging) will be added here as the project grows — check back or watch the repo.
+This project now covers the full backend fundamentals path — from a bare server to persistent storage, authentication, error handling, and logging.
 ---
 
 ## Tech Stack
@@ -45,6 +46,7 @@ More topics (logging) will be added here as the project grows — check back or 
 | [Neon](https://neon.tech/) | Serverless, cloud-hosted Postgres — no local database installation needed |
 | [Prisma](https://www.prisma.io/) | ORM — defines the database schema and generates the client used to query it |
 | [@prisma/adapter-pg](https://www.npmjs.com/package/@prisma/adapter-pg) | Driver adapter Prisma 7 requires to connect to Postgres |
+| [Winston](https://github.com/winstonjs/winston) | Structured, leveled logging to files and console |
 
 ---
 

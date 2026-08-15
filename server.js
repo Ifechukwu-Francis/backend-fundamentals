@@ -7,11 +7,21 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient( {adapter});
 
+const logger = require('./logger');
 
 const express = require ('express');
 const app = express();
 
 app.use(express.json());
+
+app.use((req,res, next) =>{
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        logger.info(`${req.method} ${res.originalUrl}  ${res.statusCode} - ${duration}ms`);
+    });
+    next();
+});
 
 const port = 3000;
 
@@ -184,11 +194,12 @@ app.post('/login', asyncHandler(async (req, res, next) => {
 }));
 
 function errorHandler(err,req, res, next){
-    console.error(err);
+    logger.error(err.message,{stack: err.stack});
     res.status(500).json({message:'Something went wrong on our end'});
 }
+
 app.use(errorHandler);
 
 app.listen(port, () => {
-    console.log(`server is running on port ${port}`);
+    logger.info(`server is running on port ${port}`);
 });
