@@ -28,8 +28,9 @@ This isn't a repo you just clone and run — it's meant to be worked through, in
 | 6 | [Database Integration](./docs/06-database.md) | Connecting a real PostgreSQL database with Prisma — schema design, migrations, and swapping in-memory storage for persistent data |
 | 7 | [Error Handling](./docs/07-error-handling.md) | Centralized error handling with Express middleware, the manual try/catch approach, and refactoring into a reusable async wrapper |
 | 8 | [Logging](./docs/08-logging.md) | Structured logging with Winston, log levels, and request-logging middleware |
+| 9 | [Real-Time Updates with WebSocket](./docs/09-websocket.md) | Upgrading HTTP to WebSocket, authenticating connections with JWT, and broadcasting live product events to all connected clients |
 
-This project now covers the full backend fundamentals path — from a bare server to persistent storage, authentication, error handling, and logging.
+This project now covers the full backend fundamentals path — from a bare server to persistent storage, authentication, error handling, logging, and real-time updates over WebSocket.
 ---
 
 ## Tech Stack
@@ -47,6 +48,7 @@ This project now covers the full backend fundamentals path — from a bare serve
 | [Prisma](https://www.prisma.io/) | ORM — defines the database schema and generates the client used to query it |
 | [@prisma/adapter-pg](https://www.npmjs.com/package/@prisma/adapter-pg) | Driver adapter Prisma 7 requires to connect to Postgres |
 | [Winston](https://github.com/winstonjs/winston) | Structured, leveled logging to files and console |
+| [ws](https://github.com/websockets/ws) | Minimal WebSocket server, used for real-time product notifications | 
 
 ---
 

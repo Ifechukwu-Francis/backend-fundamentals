@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const {PrismaPg} = require('@prisma/adapter-pg');
+const http = require('http');
 
 const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,
@@ -18,10 +19,11 @@ app.use((req,res, next) =>{
     const start = Date.now();
     res.on('finish', () => {
         const duration = Date.now() - start;
-        logger.info(`${req.method} ${res.originalUrl}  ${res.statusCode} - ${duration}ms`);
+        logger.info(`${req.method} ${req.originalUrl}  ${res.statusCode} - ${duration}ms`);
     });
     next();
 });
+
 
 const port = 3000;
 
@@ -42,6 +44,10 @@ const productSchema = z.object({
     name: z.string().min(2, 'Product name must be at least 2 characters long'),
     price: z.number().positive('Product price must be a positive number'),
 });
+
+const { WebSocketServer } = require('ws');
+
+
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -100,6 +106,13 @@ app.post('/products' ,authenticateToken,asyncHandler(async(req, res, next) => {
             ownerId: req.user.userId,
         },
     });
+
+    broadcast({
+        event:'product_created',
+        product: newProduct,
+        by: req.user.email,
+    });
+
     res.status(201).json({ message:'Product created', product: newProduct});
 
 }));
@@ -117,6 +130,12 @@ app.delete('/products/:id',authenticateToken, asyncHandler(async (req, res, next
         return res.status(403).json({message:'you do not have permission to delete this product'})
     }
     await prisma.product.delete({ where: { id: productId } });
+
+    broadcast({
+        event:'product_deleted',
+        productId: productId,
+        by: req.user.email,
+    });
 
     res.status(200).json({message:'Product deleted successfully'});
 
@@ -193,13 +212,39 @@ app.post('/login', asyncHandler(async (req, res, next) => {
   
 }));
 
+
 function errorHandler(err,req, res, next){
     logger.error(err.message,{stack: err.stack});
     res.status(500).json({message:'Something went wrong on our end'});
 }
 
-app.use(errorHandler);
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 
-app.listen(port, () => {
+
+wss.on('connection',(ws,req) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+            ws.close(1008, 'Invalid or expired token');
+            return;
+            }
+        ws.user = decoded;
+        logger.info(`WebSocket connection established for user: ${decoded.email}`);
+        });
+    });
+
+    function broadcast(message){
+        wss.clients.forEach((client) => {
+            if(client.readyState === client.OPEN){
+                client.send(JSON.stringify(message));
+            }
+        });
+    }
+
+    app.use(errorHandler);
+
+server.listen(port, () => {
     logger.info(`server is running on port ${port}`);
 });
